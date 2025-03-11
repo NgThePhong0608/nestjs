@@ -3,7 +3,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { genSaltSync, hashSync } from 'bcryptjs';
 
 @Injectable()
@@ -17,25 +17,54 @@ export class UsersService {
   };
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    createUserDto.password = this.hashPassword(createUserDto.password);
-    const user = new this.UserModel(createUserDto);
+    const currentDate = new Date();
+    const userData = {
+      ...createUserDto,
+      password: this.hashPassword(createUserDto.password),
+      createdAt: currentDate,
+      updatedAt: currentDate,
+    };
+
+    const user = new this.UserModel(userData);
     return user.save();
   }
 
-  async findAll(): Promise<User[]> {
-    return this.UserModel.find().exec();
+  async findAll(keyword?: string): Promise<User[]> {
+    let query = this.UserModel.find();
+
+    if (keyword) {
+      query = query.find({
+        $or: [
+          { name: { $regex: keyword, $options: 'i' } },
+          { email: { $regex: keyword, $options: 'i' } },
+        ],
+      });
+    }
+    query = query.sort({ createdAt: -1 });
+    return query.exec();
   }
 
-  async findOne(id: string): Promise<User> {
-    // return this.UserModel.findOne({ _id: id });
-    return this.UserModel.findById(id);
+  async findOne(id: string) {
+    // return this.UserModel.findById(id).select('-__v -password');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return { statusCode: 400, message: 'Invalid user ID' };
+    }
+    return this.UserModel.findOne({ _id: id }).select('-__v -password');
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(updateUserDto: UpdateUserDto) {
+    console.log(updateUserDto);
+
+    return await this.UserModel.updateOne(
+      { _id: updateUserDto._id },
+      { ...updateUserDto },
+    );
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async remove(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return { statusCode: 400, message: 'Invalid user ID' };
+    }
+    return await this.UserModel.deleteOne({ _id: id });
   }
 }
