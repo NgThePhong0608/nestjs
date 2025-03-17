@@ -14,9 +14,10 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { Public } from 'src/decorators/public.decorator';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@Public()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
